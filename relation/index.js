@@ -10,6 +10,7 @@ var actions = require('../lib/actions');
 var helpers = require('../lib/helpers');
 var validateName = helpers.validateName;
 var checkRelationName = helpers.checkRelationName;
+var checkReserveWords = helpers.checkReserveWords;
 
 module.exports = yeoman.generators.Base.extend({
 
@@ -111,7 +112,7 @@ module.exports = yeoman.generators.Base.extend({
           return m;
         },
         validate: function(value) {
-          var isValid = validateName(value);
+          var isValid = validateName(value)&&checkReserveWords(value);
           if (isValid !== true) return isValid;
           return checkRelationName(modelDef, value, this.async());
         }
