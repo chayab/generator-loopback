@@ -5,6 +5,7 @@ var chalk = require('chalk');
 var actions = require('../lib/actions');
 var helpers = require('../lib/helpers');
 var validateName = helpers.validateName;
+var checkReserveWords = helpers.checkReserveWords;
 var typeChoices = helpers.getTypeChoices();
 
 module.exports = yeoman.generators.Base.extend({
@@ -63,7 +64,7 @@ module.exports = yeoman.generators.Base.extend({
       {
         name: 'name',
         message: 'Enter the property name:',
-        validate: validateName,
+        validate: validateName&&checkReserveWords,
         when: function() {
           return !this.name && this.name !== 0;
         }.bind(this)
