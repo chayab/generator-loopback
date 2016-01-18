@@ -9,6 +9,7 @@ var helpers = require('../lib/helpers');
 var validateName = helpers.validateName;
 var typeChoices = helpers.getTypeChoices();
 var ModelDefinition = require('loopback-workspace').models.ModelDefinition;
+var checkReserveWords = helpers.checkReserveWords;
 
 module.exports = yeoman.generators.Base.extend({
   // This generator does not track file changes via yeoman,
@@ -89,7 +90,7 @@ module.exports = yeoman.generators.Base.extend({
         message: 'Enter the remote method name:',
         required: true,
         default: name,
-        validate: validateName
+        validate: validateName&&checkReserveWords
       },
       {
         name: 'isStatic',
