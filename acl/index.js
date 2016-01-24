@@ -1,12 +1,14 @@
 'use strict';
 var yeoman = require('yeoman-generator');
 var async = require('async');
+var fs = require('fs-extra');
 
 var wsModels = require('loopback-workspace').models;
 var ModelAccessControl = wsModels.ModelAccessControl;
 
 var actions = require('../lib/actions');
 var helpers = require('../lib/helpers');
+
 
 module.exports = yeoman.generators.Base.extend({
   // NOTE(bajtos)
@@ -59,7 +61,7 @@ module.exports = yeoman.generators.Base.extend({
         message: 'Select the model to apply the ACL entry to:',
         type: 'list',
         default: 0,
-        choices: modelChoices
+        choices: ["Book","User"],
       }
     ];
 
@@ -93,7 +95,7 @@ module.exports = yeoman.generators.Base.extend({
         ]
       },
       {
-        name: 'property',
+        name: 'method',
         message: 'Enter the method name',
         when: function(answers) {
           return answers.scope === 'method';
@@ -135,7 +137,7 @@ module.exports = yeoman.generators.Base.extend({
         name: 'permission',
         message: 'Select the permission to apply',
         type: 'list',
-        choices: this.permissionValues,
+        choices: this.permissionValues.concat(['MFP']),
       }
     ];
     this.prompt(prompts, function(answers) {
@@ -143,6 +145,8 @@ module.exports = yeoman.generators.Base.extend({
       if (answers.scope === 'method') {
         accessType = 'EXECUTE';
       }
+	  this.method = answers.method;
+	  this.property = answers.property;
       this.aclDef = {
         property: answers.property,
         accessType: accessType,
@@ -154,7 +158,62 @@ module.exports = yeoman.generators.Base.extend({
     }.bind(this));
   },
 
+  mfpServer: function() {
+	var done = this.async();
+	if (this.aclDef.permission == 'MFP') {
+		console.log("in MFP generation");
+		var prompts = [
+		  {
+			name: 'mfpScope',
+			message: 'Please enter the MFP scope:',
+			type: 'string',
+			default: "SampleAppRealm",
+			store: true
+		  },
+		  {
+			name: 'mfpServer',
+			message: 'Please enter the MFP server url:',
+			type: 'string',
+			default: "http://localhost:10080/FormBasedAuth-release71",
+			store: true
+		  }
+		];
+			
+		this.prompt(prompts, function(answers) {
+		  this.mfpServer = answers.mfpServer;
+		  this.mfpScope = answers.mfpScope;
+		  done();
+		}.bind(this));	
+	}
+  },
+  
+  mfpGeneration: function() {
+	var done = this.async();
+	if (this.aclDef.permission == 'MFP') {
+		var config = fs.readJsonSync("server/component-config.json", {throws: false});
+		console.log("config is: "+JSON.stringify(config));
+		if (!config.loopbackMfp){
+			config.loopbackMfp = {loopbackMfp: dsdv};
+		}
+		
+		config.loopbackMfp.publicKeyServerUrl = config.loopbackMfp.publicKeyServerUrl || this.mfpServer;
+		var route = "/api/"+this.modelName;
+		if (this.property) {
+			route+="/"+this.property;
+		}
+		var method = this.method;
+		var mfpScope = this.mfpScope;
+		config.loopbackMfp.routes = config.loopbackMfp.routes + {model: {method: {mfpScope}}};
+		
+		console.log("new config is: "+JSON.stringify(config));
+		//console.log(JSON.stringify(newConfig));
+		fs.writeJsonSync("server/component-config.json", config);
+	}
+  },
+  
   acl: function() {
+    if (this.aclDef.permission != 'MFP') {
+	console.log("in acl");
     var done = this.async();
 
     var aclDef = this.aclDef;
@@ -178,6 +237,7 @@ module.exports = yeoman.generators.Base.extend({
         });
       }, done);
     });
+	}
   },
 
   saveProject: actions.saveProject
