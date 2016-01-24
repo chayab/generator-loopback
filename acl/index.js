@@ -201,9 +201,14 @@ module.exports = yeoman.generators.Base.extend({
 		if (this.property) {
 			route+="/"+this.property;
 		}
+		var authRelam["authRealm"] = mfpScope;
+		var method[route]=authRealm;
+		
 		var method = this.method;
 		var mfpScope = this.mfpScope;
-		config.loopbackMfp.routes = config.loopbackMfp.routes + {model: {method: {mfpScope}}};
+		var newRoute = "{"+route+": {"+method+": {authRealm:"+mfpScope+"}}}";
+		console.log(newRoute);
+		config.loopbackMfp.routes = config.loopbackMfp.routes + newRoute;
 		
 		console.log("new config is: "+JSON.stringify(config));
 		//console.log(JSON.stringify(newConfig));
