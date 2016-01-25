@@ -192,23 +192,36 @@ module.exports = yeoman.generators.Base.extend({
 	if (this.aclDef.permission == 'MFP') {
 		var config = fs.readJsonSync("server/component-config.json", {throws: false});
 		console.log("config is: "+JSON.stringify(config));
-		if (!config.loopbackMfp){
+		console.log("config loopback-mfp element: "+config['loopback-mfp']);
+		if (!config['loopback-mfp']){
 			config.loopbackMfp = {loopbackMfp: dsdv};
 		}
 		
-		config.loopbackMfp.publicKeyServerUrl = config.loopbackMfp.publicKeyServerUrl || this.mfpServer;
+		config['loopback-mfp'].publicKeyServerUrl = config['loopback-mfp'].publicKeyServerUrl || this.mfpServer;
 		var route = "/api/"+this.modelName;
 		if (this.property) {
 			route+="/"+this.property;
 		}
-		var authRelam["authRealm"] = mfpScope;
-		var method[route]=authRealm;
-		
+		/*var newRoute = "{" + route +": {"+this.method+":{ authRealm: "+this.mfpScope+"}}}";
+		console.log("newRoute = "+newRoute);
+		var jsonRoute = JSON.parse(newRoute);
+		console.log("new json route: "+JSON.stringify(jsonRoute));*/
+		var authRealm = {'authRealm': this.mfpScope};
+		console.log("authRealm: "+JSON.stringify(authRealm));
 		var method = this.method;
-		var mfpScope = this.mfpScope;
-		var newRoute = "{"+route+": {"+method+": {authRealm:"+mfpScope+"}}}";
-		console.log(newRoute);
-		config.loopbackMfp.routes = config.loopbackMfp.routes + newRoute;
+		console.log("method: "+method);
+		var methodJson = {};
+		methodJson[method] = authRealm;
+		console.log("method: "+JSON.stringify(methodJson));
+		var newRoute = {};
+		newRoute[route] = methodJson;
+		console.log("newRoute: "+JSON.stringify(newRoute));
+		if (config['loopback-mfp'].routes){
+			config['loopback-mfp'].routes += newRoute;
+		}
+		else {
+			config['loopback-mfp'].routes = newRoute;
+		}
 		
 		console.log("new config is: "+JSON.stringify(config));
 		//console.log(JSON.stringify(newConfig));
