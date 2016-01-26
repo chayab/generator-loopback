@@ -194,7 +194,7 @@ module.exports = yeoman.generators.Base.extend({
 		console.log("config is: "+JSON.stringify(config));
 		console.log("config loopback-mfp element: "+config['loopback-mfp']);
 		if (!config['loopback-mfp']){
-			config.loopbackMfp = {loopbackMfp: dsdv};
+			config['loopback-mfp'] = {};
 		}
 		
 		config['loopback-mfp'].publicKeyServerUrl = config['loopback-mfp'].publicKeyServerUrl || this.mfpServer;
@@ -202,10 +202,7 @@ module.exports = yeoman.generators.Base.extend({
 		if (this.property) {
 			route+="/"+this.property;
 		}
-		/*var newRoute = "{" + route +": {"+this.method+":{ authRealm: "+this.mfpScope+"}}}";
-		console.log("newRoute = "+newRoute);
-		var jsonRoute = JSON.parse(newRoute);
-		console.log("new json route: "+JSON.stringify(jsonRoute));*/
+		
 		var authRealm = {'authRealm': this.mfpScope};
 		console.log("authRealm: "+JSON.stringify(authRealm));
 		var method = this.method;
@@ -216,11 +213,27 @@ module.exports = yeoman.generators.Base.extend({
 		var newRoute = {};
 		newRoute[route] = methodJson;
 		console.log("newRoute: "+JSON.stringify(newRoute));
+		//console.log("routes length: "+config['loopback-mfp'].routes.length);
 		if (config['loopback-mfp'].routes){
-			config['loopback-mfp'].routes += newRoute;
+			if (config['loopback-mfp'].routes[route]) {
+				if (config['loopback-mfp'].routes[route][method]) {
+					if (config['loopback-mfp'].routes[route][method].authRealm) {
+						config['loopback-mfp'].routes[route][method].authRealm += " "+this.mfpScope;
+					}
+					else {
+						config['loopback-mfp'].routes[route][method].authRealm = this.mfpScope;
+					}
+				}
+				else {
+					config['loopback-mfp'].routes[route][method] = authRealm;
+				}
+			}
+			else {
+				config['loopback-mfp'].routes[route]=methodJson;
+			}
 		}
 		else {
-			config['loopback-mfp'].routes = newRoute;
+			config['loopback-mfp'].routes= newRoute;
 		}
 		
 		console.log("new config is: "+JSON.stringify(config));
