@@ -198,7 +198,7 @@ module.exports = yeoman.generators.Base.extend({
 		}
 		
 		config['loopback-mfp'].publicKeyServerUrl = config['loopback-mfp'].publicKeyServerUrl || this.mfpServer;
-		var route = "/api/"+this.modelName;
+		var route = "/api/"+this.modelName+"s";
 		if (this.property) {
 			route+="/"+this.property;
 		}
