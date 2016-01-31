@@ -19,6 +19,60 @@ module.exports = yeoman.generators.Base.extend({
   help: function() {
     return helpers.customHelp(this);
   },
+  init: function(){
+      this.mfpHelperMethod = function(method){
+        var modelConfig = fs.readJsonSync(this.modelDefinition.configFile);
+        var pluralModel = modelConfig.plural;
+        pluralModel = pluralModel || this.modelName+"s";
+		var config = fs.readJsonSync("server/component-config.json", {throws: false});
+		console.log("config is: "+JSON.stringify(config));
+		console.log("config loopback-mfp element: "+config['loopback-mfp']);
+		if (!config['loopback-mfp']){
+			config['loopback-mfp'] = {};
+		}
+		
+		config['loopback-mfp'].publicKeyServerUrl = config['loopback-mfp'].publicKeyServerUrl || this.mfpServer;
+		var route = "/api/"+pluralModel;
+		if (this.property) {
+			route+="/"+this.property;
+		}
+		
+		var authRealm = {'authRealm': this.mfpScope};
+		console.log("authRealm: "+JSON.stringify(authRealm));
+		console.log("method: "+method);
+		var methodJson = {};
+		methodJson[method] = authRealm;
+		console.log("method: "+JSON.stringify(methodJson));
+		var newRoute = {};
+		newRoute[route] = methodJson;
+		console.log("newRoute: "+JSON.stringify(newRoute));
+		if (config['loopback-mfp'].routes){
+			if (config['loopback-mfp'].routes[route]) {
+				if (config['loopback-mfp'].routes[route][method]) {
+					if (config['loopback-mfp'].routes[route][method].authRealm) {
+						config['loopback-mfp'].routes[route][method].authRealm += " "+this.mfpScope;
+					}
+					else {
+						config['loopback-mfp'].routes[route][method].authRealm = this.mfpScope;
+					}
+				}
+				else {
+					config['loopback-mfp'].routes[route][method] = authRealm;
+				}
+			}
+			else {
+				config['loopback-mfp'].routes[route]=methodJson;
+			}
+		}
+		else {
+			config['loopback-mfp'].routes= newRoute;
+		}
+		
+		console.log("new config is: "+JSON.stringify(config));
+		fs.writeJsonSync("server/component-config.json", config);
+      };
+ 
+  },
 
   loadProject: actions.loadProject,
 
@@ -50,7 +104,7 @@ module.exports = yeoman.generators.Base.extend({
 
   askForModel: function() {
     var done = this.async();
-
+    
     var modelChoices =
       [{ name: '(all existing models)', value: null }]
       .concat(this.editableModelNames);
@@ -61,7 +115,7 @@ module.exports = yeoman.generators.Base.extend({
         message: 'Select the model to apply the ACL entry to:',
         type: 'list',
         default: 0,
-        choices: ["Book","User"],
+        choices: ["Book","Troly"],
       }
     ];
 
@@ -72,6 +126,7 @@ module.exports = yeoman.generators.Base.extend({
           return m.name === answers.model;
         })[0];
       }
+      console.log("config: "+this.modelDefinition.configFile);
       done();
     }.bind(this));
 
@@ -138,18 +193,41 @@ module.exports = yeoman.generators.Base.extend({
         message: 'Select the permission to apply',
         type: 'list',
         choices: this.permissionValues.concat(['MFP']),
-      }
+      },
+        {
+        name: 'mfpScope',
+        message: 'Please enter the MFP scope:',
+        type: 'string',
+        default: "SampleAppRealm",
+        store: true,
+        when: function(answers) {
+          return answers.permission === 'MFP';
+        }
+        },
+        {
+        name: 'mfpServer',
+        message: 'Please enter the MFP server url:',
+        type: 'string',
+        default: "http://localhost:10080/FormBasedAuth-release71",
+        store: true,
+        when: function(answers) {
+          return answers.permission === 'MFP';
+        }
+        }
     ];
     this.prompt(prompts, function(answers) {
-      var accessType = answers.accessType;
+      this.accessType = answers.accessType;
       if (answers.scope === 'method') {
-        accessType = 'EXECUTE';
+        this.accessType = 'EXECUTE';
       }
+      this.scope = answers.scope;
 	  this.method = answers.method;
+      this.mfpServer = answers.mfpServer;
+      this.mfpScope = answers.mfpScope;
 	  this.property = answers.property;
       this.aclDef = {
         property: answers.property,
-        accessType: accessType,
+        accessType: this.accessType,
         principalType: 'ROLE', // TODO(bajtos) support all principal types
         principalId: answers.customRole || answers.role,
         permission: answers.permission
@@ -157,89 +235,14 @@ module.exports = yeoman.generators.Base.extend({
       done();
     }.bind(this));
   },
-
-  mfpServer: function() {
-	var done = this.async();
-	if (this.aclDef.permission == 'MFP') {
-		console.log("in MFP generation");
-		var prompts = [
-		  {
-			name: 'mfpScope',
-			message: 'Please enter the MFP scope:',
-			type: 'string',
-			default: "SampleAppRealm",
-			store: true
-		  },
-		  {
-			name: 'mfpServer',
-			message: 'Please enter the MFP server url:',
-			type: 'string',
-			default: "http://localhost:10080/FormBasedAuth-release71",
-			store: true
-		  }
-		];
-			
-		this.prompt(prompts, function(answers) {
-		  this.mfpServer = answers.mfpServer;
-		  this.mfpScope = answers.mfpScope;
-		  done();
-		}.bind(this));	
-	}
-  },
   
   mfpGeneration: function() {
 	var done = this.async();
 	if (this.aclDef.permission == 'MFP') {
-		var config = fs.readJsonSync("server/component-config.json", {throws: false});
-		console.log("config is: "+JSON.stringify(config));
-		console.log("config loopback-mfp element: "+config['loopback-mfp']);
-		if (!config['loopback-mfp']){
-			config['loopback-mfp'] = {};
-		}
-		
-		config['loopback-mfp'].publicKeyServerUrl = config['loopback-mfp'].publicKeyServerUrl || this.mfpServer;
-		var route = "/api/"+this.modelName+"s";
-		if (this.property) {
-			route+="/"+this.property;
-		}
-		
-		var authRealm = {'authRealm': this.mfpScope};
-		console.log("authRealm: "+JSON.stringify(authRealm));
-		var method = this.method;
-		console.log("method: "+method);
-		var methodJson = {};
-		methodJson[method] = authRealm;
-		console.log("method: "+JSON.stringify(methodJson));
-		var newRoute = {};
-		newRoute[route] = methodJson;
-		console.log("newRoute: "+JSON.stringify(newRoute));
-		//console.log("routes length: "+config['loopback-mfp'].routes.length);
-		if (config['loopback-mfp'].routes){
-			if (config['loopback-mfp'].routes[route]) {
-				if (config['loopback-mfp'].routes[route][method]) {
-					if (config['loopback-mfp'].routes[route][method].authRealm) {
-						config['loopback-mfp'].routes[route][method].authRealm += " "+this.mfpScope;
-					}
-					else {
-						config['loopback-mfp'].routes[route][method].authRealm = this.mfpScope;
-					}
-				}
-				else {
-					config['loopback-mfp'].routes[route][method] = authRealm;
-				}
-			}
-			else {
-				config['loopback-mfp'].routes[route]=methodJson;
-			}
-		}
-		else {
-			config['loopback-mfp'].routes= newRoute;
-		}
-		
-		console.log("new config is: "+JSON.stringify(config));
-		//console.log(JSON.stringify(newConfig));
-		fs.writeJsonSync("server/component-config.json", config);
+        this.mfpHelperMethod(this.method);
+        
 	}
+    done();
   },
   
   acl: function() {
@@ -253,12 +256,14 @@ module.exports = yeoman.generators.Base.extend({
     {} /* all models, force refresh */;
 
     wsModels.ModelDefinition.find(filter, function(err, models) {
+        console.log("model: "+models);
       if (err) {
         return done(err);
       }
 
       var firstError = true;
       async.eachSeries(models, function(model, cb) {
+          console.log("model: "+model);
         model.accessControls.create(aclDef, function(err) {
           if (err && firstError) {
             helpers.reportValidationError(err);
