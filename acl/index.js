@@ -20,13 +20,13 @@ module.exports = yeoman.generators.Base.extend({
     return helpers.customHelp(this);
   },
   init: function(){
-      this.mfpHelperMethod = function(method){
+      this.mfpHelperMethod = function(method, path){
         var modelConfig = fs.readJsonSync(this.modelDefinition.configFile);
         var pluralModel = modelConfig.plural;
         pluralModel = pluralModel || this.modelName+"s";
-		var config = fs.readJsonSync("server/component-config.json", {throws: false});
-		console.log("config is: "+JSON.stringify(config));
-		console.log("config loopback-mfp element: "+config['loopback-mfp']);
+		var config = fs.readJsonSync(path, {throws: false});
+		//console.log("config is: "+JSON.stringify(config));
+		//console.log("config loopback-mfp element: "+config['loopback-mfp']);
 		if (!config['loopback-mfp']){
 			config['loopback-mfp'] = {};
 		}
@@ -38,14 +38,14 @@ module.exports = yeoman.generators.Base.extend({
 		}
 		
 		var authRealm = {'authRealm': this.mfpScope};
-		console.log("authRealm: "+JSON.stringify(authRealm));
-		console.log("method: "+method);
+		//console.log("authRealm: "+JSON.stringify(authRealm));
+		//console.log("method: "+method);
 		var methodJson = {};
 		methodJson[method] = authRealm;
-		console.log("method: "+JSON.stringify(methodJson));
+		//console.log("method: "+JSON.stringify(methodJson));
 		var newRoute = {};
 		newRoute[route] = methodJson;
-		console.log("newRoute: "+JSON.stringify(newRoute));
+		//console.log("newRoute: "+JSON.stringify(newRoute));
 		if (config['loopback-mfp'].routes){
 			if (config['loopback-mfp'].routes[route]) {
 				if (config['loopback-mfp'].routes[route][method]) {
@@ -68,8 +68,8 @@ module.exports = yeoman.generators.Base.extend({
 			config['loopback-mfp'].routes= newRoute;
 		}
 		
-		console.log("new config is: "+JSON.stringify(config));
-		fs.writeJsonSync("server/component-config.json", config);
+		//console.log("new config is: "+JSON.stringify(config));
+		fs.writeJsonSync(path, config);
       };
  
   },
@@ -107,7 +107,7 @@ module.exports = yeoman.generators.Base.extend({
     
     var modelChoices =
       [{ name: '(all existing models)', value: null }]
-      .concat(this.editableModelNames);
+      .concat(this.modelNames);
 
     var prompts = [
       {
@@ -115,7 +115,7 @@ module.exports = yeoman.generators.Base.extend({
         message: 'Select the model to apply the ACL entry to:',
         type: 'list',
         default: 0,
-        choices: ["Book","Troly"],
+        choices: modelChoices
       }
     ];
 
@@ -126,7 +126,7 @@ module.exports = yeoman.generators.Base.extend({
           return m.name === answers.model;
         })[0];
       }
-      console.log("config: "+this.modelDefinition.configFile);
+      //console.log("config: "+this.modelDefinition.configFile);
       done();
     }.bind(this));
 
@@ -196,7 +196,7 @@ module.exports = yeoman.generators.Base.extend({
       },
         {
         name: 'mfpScope',
-        message: 'Please enter the MFP scope:',
+        message: 'Please enter the MFP security permission (scope):',
         type: 'string',
         default: "SampleAppRealm",
         store: true,
@@ -239,7 +239,8 @@ module.exports = yeoman.generators.Base.extend({
   mfpGeneration: function() {
 	var done = this.async();
 	if (this.aclDef.permission == 'MFP') {
-        this.mfpHelperMethod(this.method);
+        this.mfpHelperMethod(this.method, "server/component-config.json");
+        this.mfpHelperMethod(this.method, "../auth-server/server/component-config.json");
         
 	}
     done();
@@ -247,7 +248,7 @@ module.exports = yeoman.generators.Base.extend({
   
   acl: function() {
     if (this.aclDef.permission != 'MFP') {
-	console.log("in acl");
+	//console.log("in acl");
     var done = this.async();
 
     var aclDef = this.aclDef;
@@ -263,7 +264,7 @@ module.exports = yeoman.generators.Base.extend({
 
       var firstError = true;
       async.eachSeries(models, function(model, cb) {
-          console.log("model: "+model);
+          //console.log("model: "+model);
         model.accessControls.create(aclDef, function(err) {
           if (err && firstError) {
             helpers.reportValidationError(err);
